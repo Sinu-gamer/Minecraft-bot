@@ -6,7 +6,7 @@ function startBot() {
   const bot = mineflayer.createBot({
     host: 'LastStandMC.aternos.me',
     port: 41963,
-    username: 'WoodBot',
+    username: 'WoodBot2',
     version: '1.21'
   })
 

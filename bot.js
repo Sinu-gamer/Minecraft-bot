@@ -15,9 +15,10 @@ function startBot() {
   let mcData
   let move
   let basePos = null
+
+  // ✅ GLOBAL STATE (NO MORE ERRORS)
   let craftingInProgress = false
   let hasPickaxe = false
-  let craftingDone = false
 
   bot.on('spawn', () => {
     console.log('Spawned')
@@ -37,10 +38,10 @@ function startBot() {
 
     setTimeout(() => {
       basePos = bot.entity.position.clone()
-      console.log('Base set:', basePos)
+      console.log('Base set')
     }, 7000)
 
-    setInterval(mainAI, 6000)
+    setInterval(mainAI, 5000)
   })
 
   // 🌲 FIND LOG
@@ -51,7 +52,7 @@ function startBot() {
     })
   }
 
-  // ⚔️ SIMPLE COMBAT
+  // ⚔️ COMBAT
   function fightMobs() {
     const mob = Object.values(bot.entities)
       .filter(e =>
@@ -67,69 +68,60 @@ function startBot() {
     return true
   }
 
-  // 🧠 PRIORITY 1: TOOL CHECK
-  let craftingInProgress = false
+  // 🧠 SAFE TOOL CHECK
+  async function ensureTools() {
+    if (craftingInProgress) return
+    if (hasPickaxe) return
 
-async function ensureTools() {
-  if (craftingInProgress) return
+    const pickaxe = bot.inventory.items().find(i =>
+      i.name.includes('pickaxe')
+    )
 
-  const pickaxe = bot.inventory.items().find(i =>
-    i.name.includes('pickaxe')
-  )
+    if (pickaxe) {
+      hasPickaxe = true
+      return
+    }
 
-  if (pickaxe) return
+    craftingInProgress = true
+    console.log('⚒ No pickaxe → crafting started')
 
-  craftingInProgress = true
-  console.log('No pickaxe → crafting system starting')
+    await craftTools()
 
-  await craftTools()
+    setTimeout(() => {
+      craftingInProgress = false
+    }, 12000)
+  }
 
-  setTimeout(() => {
-    craftingInProgress = false
-  }, 15000) // 15 sec cooldown
-}
-
-  // ⚒️ FULL CRAFT SYSTEM (FIXED)
+  // ⚒️ STABLE CRAFT SYSTEM
   async function craftTools() {
     try {
       const mc = mcData
 
-      // STEP 1: LOG → PLANKS
+      // LOG → PLANKS
       const log = bot.inventory.items().find(i => i.name.includes('log'))
       if (log) {
         const recipe = bot.recipesFor(mc.itemsByName.oak_planks.id, null, 1, null)[0]
         if (recipe) await bot.craft(recipe, 1, null)
       }
 
-      // STEP 2: PLANKS → STICKS
+      // PLANKS → STICKS
       const plank = bot.inventory.items().find(i => i.name.includes('planks'))
       if (plank) {
         const recipe = bot.recipesFor(mc.itemsByName.stick.id, null, 1, null)[0]
         if (recipe) await bot.craft(recipe, 1, null)
       }
 
-      // STEP 3: CRAFT TABLE
-      const tableRecipe =
-        bot.recipesFor(mc.itemsByName.crafting_table.id, null, 1, null)[0]
-
-      const planks = bot.inventory.items().find(i => i.name.includes('planks'))
-
-      if (tableRecipe && planks) {
-        await bot.craft(tableRecipe, 1, null)
-        console.log('Crafted crafting table')
-      }
-
-      // STEP 4: PICKAXE
+      // PICKAXE
       const pickaxeRecipe =
         bot.recipesFor(mc.itemsByName.wooden_pickaxe.id, null, 1, null)[0]
 
       const sticks = bot.inventory.items().find(i => i.name.includes('stick'))
-      const planks2 = bot.inventory.items().find(i => i.name.includes('planks'))
+      const planks = bot.inventory.items().find(i => i.name.includes('planks'))
 
-      if (pickaxeRecipe && sticks && planks2) {
+      if (pickaxeRecipe && sticks && planks) {
         await bot.craft(pickaxeRecipe, 1, null)
-        console.log('✔ Pickaxe crafted')
-        craftingDone = true
+        hasPickaxe = true
+        console.log('✔ Pickaxe crafted successfully')
       }
 
     } catch (e) {
@@ -137,9 +129,9 @@ async function ensureTools() {
     }
   }
 
-  // 🌲 TREE CUTTING (ONLY AFTER TOOLS)
+  // 🌲 TREE CUTTING
   async function chopTree() {
-    if (!craftingDone) return false
+    if (!hasPickaxe) return false
 
     const log = findLog()
     if (!log) return false
@@ -157,7 +149,7 @@ async function ensureTools() {
     }
   }
 
-  // 🏠 BASE CONTROL
+  // 🏠 BASE STAY
   function stayNearBase() {
     if (!basePos) return
 
@@ -185,15 +177,15 @@ async function ensureTools() {
     )
   }
 
-  // 🧠 MAIN PRIORITY SYSTEM
+  // 🧠 MAIN AI (CLEAN + CONTROLLED)
   async function mainAI() {
     try {
       stayNearBase()
 
-      // 🔥 PRIORITY ORDER
-      await ensureTools()   // 1st priority
-      if (await chopTree()) return
+      await ensureTools()
+
       if (fightMobs()) return
+      if (await chopTree()) return
 
       wander()
 

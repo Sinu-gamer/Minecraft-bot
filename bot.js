@@ -67,19 +67,26 @@ function startBot() {
   }
 
   // 🧠 PRIORITY 1: TOOL CHECK
-  async function ensureTools() {
-    const pickaxe = bot.inventory.items().find(i =>
-      i.name.includes('pickaxe')
-    )
+  let craftingInProgress = false
 
-    if (pickaxe) {
-      hasPickaxe = true
-      return
-    }
+async function ensureTools() {
+  if (craftingInProgress) return
 
-    console.log('No pickaxe → crafting system starting')
-    await craftTools()
-  }
+  const pickaxe = bot.inventory.items().find(i =>
+    i.name.includes('pickaxe')
+  )
+
+  if (pickaxe) return
+
+  craftingInProgress = true
+  console.log('No pickaxe → crafting system starting')
+
+  await craftTools()
+
+  setTimeout(() => {
+    craftingInProgress = false
+  }, 15000) // 15 sec cooldown
+}
 
   // ⚒️ FULL CRAFT SYSTEM (FIXED)
   async function craftTools() {

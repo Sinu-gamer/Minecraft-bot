@@ -15,6 +15,7 @@ function startBot() {
   let mcData
   let move
   let basePos = null
+  let craftingInProgress = false
   let hasPickaxe = false
   let craftingDone = false
 
